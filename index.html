@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>自習室運轉中</title>
+<style>
+  :root{
+    --bg:#f6f3ec; --card:#fffdf8; --ink:#2b2a27; --muted:#7a776f; --line:#e3ddd0;
+    --empty:#3f9b6b; --empty-bg:#e3f2e8;
+    --held:#c98a1c; --held-bg:#fbeed3;
+    --used:#8a8780; --used-bg:#ebe8e1;
+    --away:#a59a86; --away-bg:#f1ede4;
+    --off:#c0503f; --accent:#2f5d8a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:20px 16px 120px}
+  h1{font-size:20px;font-weight:600;margin:4px 0 2px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+  .count{display:flex;align-items:baseline;gap:8px}
+  .count b{font-size:40px;font-weight:600;color:var(--empty);line-height:1}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin-top:10px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .seat{border-radius:10px;padding:12px 6px;text-align:center;border:1.5px solid transparent;
+    font-size:13px;cursor:pointer;user-select:none;transition:transform .1s}
+  .seat:active{transform:scale(.96)}
+  .seat .id{font-size:18px;font-weight:600;display:block}
+  .seat.empty{background:var(--empty-bg);color:var(--empty);border-color:var(--empty)}
+  .seat.held{background:var(--held-bg);color:var(--held);border-color:var(--held)}
+  .seat.used{background:var(--used-bg);color:var(--used)}
+  .seat.away{background:var(--away-bg);color:var(--away)}
+  .seat.mine{box-shadow:0 0 0 3px var(--accent)}
+  .seat .off{display:block;color:var(--off);font-size:11px;margin-top:2px}
+  .aisle{grid-column:1/-1;height:6px}
+  button{font:inherit;border:0;border-radius:10px;padding:12px 16px;cursor:pointer}
+  .btn{background:var(--ink);color:#fff;width:100%;font-size:16px}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.small{width:auto;padding:8px 12px;font-size:14px}
+  .btn:disabled{opacity:.4;cursor:default}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+    border-radius:18px 18px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 30px rgba(0,0,0,.08);max-width:560px;margin:0 auto}
+  .hidden{display:none}
+  .big{font-size:28px;font-weight:600;letter-spacing:.06em}
+  .code{font-family:ui-monospace,Menlo,monospace;font-size:32px;letter-spacing:.3em;font-weight:600}
+  .banner{background:var(--held-bg);border:1px solid var(--held);color:#6b4a0e}
+  .ok{background:var(--empty-bg);border-color:var(--empty);color:#1f5a3b}
+  .warn{color:var(--off);font-size:14px}
+  .muted{color:var(--muted);font-size:13px}
+  input,textarea,select{font:inherit;width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .chip{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:14px}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .room{border-radius:12px;padding:20px;text-align:center;background:#24304a;color:#f3e7c4}
+  .room .name{font-size:22px;font-weight:600;margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:8px 4px;border-bottom:1px solid var(--line);text-align:left}
+  /* 看板（iPad） */
+  body.board .wrap{max-width:1100px}
+  body.board .grid{grid-template-columns:repeat(4,1fr);gap:16px}
+  body.board .seat{padding:28px 8px;font-size:18px}
+  body.board .seat .id{font-size:32px}
+  body.board .count b{font-size:96px}
+  .boardTop{display:flex;justify-content:space-between;align-items:center;gap:24px}
+  .qrbox{text-align:center;font-size:14px;color:var(--muted)}
+  .qrbox img{width:160px;height:160px;display:block;margin:0 auto 6px}
+  /* QR 列印頁 */
+  .qrgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .qrcard{border:1px dashed #999;border-radius:12px;padding:16px;text-align:center;break-inside:avoid}
+  .qrcard img{width:180px;height:180px}
+  @media print{.noprint{display:none} body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="sub">連線中…</p></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, runTransaction, set, update, remove, push, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ====================== 設定（可以改這裡） ======================
+const firebaseConfig = {
+  apiKey: "AIzaSyDj7dvofrTgczvKeQagkA_Q-IRToZr1g90",
+  authDomain: "study-room-city.firebaseapp.com",
+  databaseURL: "https://study-room-city-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "study-room-city",
+  storageBucket: "study-room-city.firebasestorage.app",
+  messagingSenderId: "869043897899",
+  appId: "1:869043897899:web:ed901ee1b97b68f20a8c6e"
+};
+const PLACE_NAME = "六樓自習室";
+const HOLD_MINUTES = 15;              // 保留幾分鐘
+// 座位：real = 真的有裝置（A、B），其他是展示用的模擬座位
+// 想改排列：null 代表走道（換行）
+const SEATS = [
+  {id:"A", real:true}, {id:"B", real:true}, {id:"C"}, {id:"D"},
+  null,
+  {id:"E"}, {id:"F"}, {id:"G"}, {id:"H"},
+];
+// 房間名稱：跟 city_in_session.pde 的 ROOM_NAMES 完全一樣（Processing 傳來的是編號）
+const ROOM_NAMES = [
+  "春・櫻花茶室", "夏・冰淇淋店", "秋・楓葉書房", "冬・暖爐雪夜", "聖誕夜",
+  "草莓蛋糕店", "植物溫室", "圖書館", "星空臥室", "萬聖節・魔藥小屋",
+  "吸血鬼・月夜古堡", "秋意・南瓜小閣樓", "冬・暖暖的家"
+];
+// 目前使用中的房間（跟 Processing 的 ROOM_LIST 一樣；模擬座位從這裡抽）
+const ROOM_LIST = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
+const OFFLINE_AFTER_MS = 2 * 60 * 1000;   // 實體裝置超過 2 分鐘沒回報 → 顯示離線
+// ===============================================================
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
+
+const params = new URLSearchParams(location.search);
+const MODE = params.has("seat") ? "seat" : params.has("board") ? "board"
+           : params.has("admin") ? "admin" : params.has("qr") ? "qr" : "map";
+const SEAT_PARAM = (params.get("seat") || "").toUpperCase();
+const BASE_URL = location.origin + location.pathname;
+
+let uid = null;
+let seats = {};          // Firebase 的 seats
+let myHold = null;       // holds/{uid}
+let repairs = {};
+let myRooms = {};
+let offset = 0;          // 伺服器時間差
+const now = () => Date.now() + offset;
+const $ = (s) => document.querySelector(s);
+const allSeats = SEATS.filter(Boolean);
+
+// ---------- 座位狀態（燈條、看板、地圖都用這個判斷） ----------
+function stateOf(id) {
+  const s = seats[id] || {};
+  const dev = s.device || {};
+  const hold = s.hold;
+  const def = allSeats.find(x => x.id === id) || {};
+  const offline = def.real && (!dev.updated || now() - dev.updated > OFFLINE_AFTER_MS);
+  const holdActive = hold && hold.until > now();
+  let st = "empty";
+  if (dev.occupied) st = dev.away ? "away" : "used";
+  else if (holdActive) st = "held";
+  return { st, offline, hold: holdActive ? hold : null, dev };
+}
+const LABEL = { empty:"空位", held:"保留中", used:"使用中", away:"暫離" };
+const countEmpty = () => allSeats.filter(s => stateOf(s.id).st === "empty").length;
+const fmt = (ms) => { const t = Math.max(0, Math.ceil(ms/1000)); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`; };
+const qrImg = (text, cell=6) => { const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createDataURL(cell, 8); };
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---------- 保留／取消／報到 ----------
+async function holdSeat(id) {
+  if (myHold && myHold.until > now()) { alert("你已經保留了一個位子，一次只能保留一個。"); return; }
+  if (stateOf(id).st !== "empty") { alert("這個位子剛剛被選走了，換一個吧。"); return; }
+  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const until = now() + HOLD_MINUTES * 60000;
+  const res = await runTransaction(ref(db, `seats/${id}/hold`), cur => {
+    if (cur && cur.until > now()) return;            // 已被別人保留 → 放棄
+    return { by: uid, until, code };
+  });
+  if (!res.committed) { alert("這個位子剛剛被保留了，換一個吧。"); return; }
+  await set(ref(db, `holds/${uid}`), { seat: id, until, code });
+  closeSheet();
+}
+async function cancelHold() {
+  if (!myHold) return;
+  await remove(ref(db, `seats/${myHold.seat}/hold`));
+  await remove(ref(db, `holds/${uid}`));
+}
+async function checkIn(id, codeInput) {
+  const { hold } = stateOf(id);
+  if (!hold) return "notHeld";
+  if (hold.by !== uid && hold.code !== codeInput) return "wrong";
+  await remove(ref(db, `seats/${id}/hold`));
+  await remove(ref(db, `holds/${hold.by}`));
+  return "ok";
+}
+
+// ---------- 收集房間 ----------
+async function collectRoom(id) {
+  const dev = stateOf(id).dev;
+  const idx = Number.isInteger(dev.room) ? dev.room : ROOM_LIST[Math.floor(Math.random() * ROOM_LIST.length)];
+  const item = { seat: id, room: idx, at: serverTimestamp() };
+  await push(ref(db, `collections/${uid}`), item);
+  return idx;
+}
+
+// ---------- 報修 ----------
+async function report(id, kind, note) {
+  await push(ref(db, "repairs"), { seat: id, kind, note: note || "", at: serverTimestamp(), done: false });
+}
+
+// ================= 畫面：地圖（掃入口 QR code） =================
+function mapView() {
+  $("#app").innerHTML = `
+    <h1>自習室運轉中</h1><p class="sub">${PLACE_NAME}・即時空位</p>
+    <div id="myHold"></div>
+    <div class="card"><div class="count"><b id="nEmpty">-</b><span>個空位，共 ${allSeats.length} 位</span></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--empty)"></i>空位</span>
+        <span><i class="dot" style="background:var(--held)"></i>保留中</span>
+        <span><i class="dot" style="background:var(--used)"></i>使用中</span>
+        <span><i class="dot" style="background:var(--away)"></i>暫離</span></div></div>
+    <div class="card"><div class="grid" id="grid"></div>
+      <p class="muted" style="margin:12px 0 0">點綠色的空位，可以保留 ${HOLD_MINUTES} 分鐘。不用註冊，一次保留一個。</p></div>
+    <div class="sheet hidden" id="sheet"></div>`;
+  $("#grid").addEventListener("click", e => {
+    const el = e.target.closest(".seat"); if (!el) return;
+    openSheet(el.dataset.id);
+  });
+}
+function renderMap() {
+  $("#nEmpty").textContent = countEmpty();
+  $("#grid").innerHTML = SEATS.map(def => {
+    if (!def) return `<div class="aisle"></div>`;
+    const { st, offline } = stateOf(def.id);
+    const mine = myHold && myHold.seat === def.id && myHold.until > now();
+    return `<div class="seat ${st} ${mine ? "mine" : ""}" data-id="${def.id}">
+      <span class="id">${def.id}</span>${mine ? "你的保留" : LABEL[st]}
+      ${offline ? `<span class="off">裝置離線</span>` : ""}</div>`;
+  }).join("");
+  const box = $("#myHold");
+  if (myHold && myHold.until > now()) {
+    const seatSt = stateOf(myHold.seat);
+    box.innerHTML = `<div class="card banner">
+      <div>已幫你保留 <b>${myHold.seat}</b> 號位，剩下 <b>${fmt(myHold.until - now())}</b></div>
+      <div class="muted" style="color:#6b4a0e;margin:6px 0 10px">到了以後坐下，掃座位上的 QR code 報到。換手機的話，輸入報到碼：</div>
+      <div class="code">${myHold.code}</div>
+      ${seatSt.st === "used" ? `<p class="warn">有人坐在你的位子上了，可以另選一個空位。</p>` : ""}
+      <button class="btn ghost small" id="cancelBtn" style="margin-top:10px">取消保留</button></div>`;
+    $("#cancelBtn").onclick = cancelHold;
+  } else box.innerHTML = "";
+}
+function openSheet(id) {
+  const { st } = stateOf(id);
+  const sh = $("#sheet");
+  if (st !== "empty") {
+    sh.innerHTML = `<p class="big">${id} 號位</p><p>現在是「${LABEL[st]}」，換一個綠色的空位吧。</p>
+      <button class="btn ghost" id="closeS">知道了</button>`;
+  } else {
+    sh.innerHTML = `<p class="big">${id} 號位</p>
+      <p>保留 ${HOLD_MINUTES} 分鐘，讓你走過去的時候位子還在。<br><span class="muted">時間到沒有報到，會自動釋放給其他人。</span></p>
+      <div class="row"><button class="btn ghost" id="closeS">再看看</button><button class="btn" id="holdBtn">保留 ${HOLD_MINUTES} 分鐘</button></div>`;
+    $("#holdBtn").onclick = () => holdSeat(id);
+  }
+  sh.classList.remove("hidden");
+  $("#closeS").onclick = closeSheet;
+}
+function closeSheet() { const s = $("#sheet"); if (s) s.classList.add("hidden"); }
+
+// ================= 畫面：座位（掃桌上 QR code） =================
+let seatPanel = "";
+function seatView() {
+  if (!allSeats.find(s => s.id === SEAT_PARAM)) { $("#app").innerHTML = `<p>找不到 ${esc(SEAT_PARAM)} 號位。</p>`; return; }
+  $("#app").innerHTML = `
+    <h1>${SEAT_PARAM} 號位</h1><p class="sub">${PLACE_NAME}</p>
+    <div class="card" id="seatStatus"></div>
+    <div id="panel"></div>
+    <p class="muted" style="text-align:center"><a href="${BASE_URL}">看整層樓的空位</a></p>`;
+}
+function renderSeat() {
+  const { st, hold, offline } = stateOf(SEAT_PARAM);
+  $("#seatStatus").innerHTML = `<div class="count"><b style="color:var(--${st === "used" ? "used" : st})">${LABEL[st]}</b></div>
+    ${hold ? `<p class="muted">保留到 ${fmt(hold.until - now())} 後</p>` : ""}
+    ${offline ? `<p class="warn">裝置目前離線</p>` : ""}`;
+  // 依狀態決定要顯示哪個面板（只有狀態改變時才重畫，才不會打斷輸入）
+  const key = hold ? (hold.by === uid ? "myhold" : "otherhold") : "normal";
+  if (key === seatPanel) return;
+  seatPanel = key;
+  const p = $("#panel");
+  if (key === "myhold") {
+    p.innerHTML = `<div class="card"><p>這是你保留的位子。坐下以後按報到。</p><button class="btn" id="ciBtn">報到</button></div>`;
+    $("#ciBtn").onclick = async () => showResult(await checkIn(SEAT_PARAM));
+  } else if (key === "otherhold") {
+    p.innerHTML = `<div class="card"><p>這個位子已被保留。如果是你保留的（換了手機），請輸入報到碼：</p>
+      <input id="codeIn" inputmode="numeric" maxlength="4" placeholder="4 位數報到碼">
+      <button class="btn" id="ciBtn" style="margin-top:10px">報到</button>
+      <p class="muted">不是你保留的？<a href="${BASE_URL}">看看其他空位</a></p></div>`;
+    $("#ciBtn").onclick = async () => showResult(await checkIn(SEAT_PARAM, $("#codeIn").value.trim()));
+  } else {
+    p.innerHTML = `
+      <div class="card"><p><b>要離開了嗎？</b>收集今天陪你讀書的房間。</p>
+        <button class="btn" id="collectBtn">收集房間</button><div id="roomOut"></div></div>
+      <div class="card"><p><b>裝置有問題？</b></p>
+        <div class="chips" id="kinds">${["燈不亮","坐下沒反應","畫面異常","其他"].map(k => `<span class="chip" data-k="${k}">${k}</span>`).join("")}</div>
+        <textarea id="note" rows="2" placeholder="想補充的（選填）"></textarea>
+        <button class="btn ghost" id="repBtn" style="margin-top:10px" disabled>送出報修</button><div id="repOut"></div></div>`;
+    let kind = "";
+    $("#kinds").onclick = e => { const c = e.target.closest(".chip"); if (!c) return;
+      document.querySelectorAll(".chip").forEach(x => x.classList.remove("on")); c.classList.add("on");
+      kind = c.dataset.k; $("#repBtn").disabled = false; };
+    $("#repBtn").onclick = async () => { $("#repBtn").disabled = true; await report(SEAT_PARAM, kind, $("#note").value);
+      $("#repOut").innerHTML = `<p class="muted">已送出，謝謝你。</p>`; };
+    $("#collectBtn").onclick = async () => {
+      $("#collectBtn").disabled = true;
+      const idx = await collectRoom(SEAT_PARAM);
+      const n = Object.keys(myRooms).length;
+      $("#roomOut").innerHTML = `<div class="room" style="margin-top:12px"><div>今天收集到</div>
+        <div class="name">${esc(ROOM_NAMES[idx] || "房間 " + (idx + 1))}</div>
+        <div style="font-size:13px;opacity:.8;margin-top:8px">你已經收集了 ${n} 間房間</div></div>`;
+    };
+  }
+}
+function showResult(r) {
+  const p = $("#panel");
+  if (r === "ok") { seatPanel = "done"; p.innerHTML = `<div class="card ok">報到成功，祝你讀書順利。</div>`; }
+  else if (r === "wrong") alert("報到碼不正確。");
+  else alert("這個位子目前沒有保留。");
+}
+
+// ================= 畫面：看板（iPad，?board） =================
+function boardView() {
+  document.body.classList.add("board");
+  $("#app").innerHTML = `
+    <div class="boardTop"><div><h1 style="font-size:32px">${PLACE_NAME}</h1>
+      <div class="count"><b id="nEmpty">-</b><span style="font-size:24px">個空位，共 ${allSeats.length} 位</span></div></div>
+      <div class="qrbox"><img src="${qrImg(BASE_URL, 5)}" alt="QR code">掃描保留座位</div></div>
+    <div class="card"><div class="grid" id="grid"></div></div>`;
+}
+function renderBoard() {
+  $("#nEmpty").textContent = countEmpty();
+  $("#grid").innerHTML = SEATS.map(def => {
+    if (!def) return `<div class="aisle"></div>`;
+    const { st, offline, hold } = stateOf(def.id);
+    return `<div class="seat ${st}"><span class="id">${def.id}</span>${LABEL[st]}
+      ${hold ? ` ${fmt(hold.until - now())}` : ""}${offline ? `<span class="off">裝置離線</span>` : ""}</div>`;
+  }).join("");
+}
+
+// ================= 畫面：控制台（評圖模擬用，?admin） =================
+function adminView() {
+  $("#app").innerHTML = `<h1>控制台</h1><p class="sub">模擬座位狀態、看報修。實體座位 A、B 由 Processing 回報，這裡也可以手動蓋過去測試。</p>
+    <div class="card"><table id="seatTable"></table></div>
+    <div class="card"><b>報修</b><table id="repTable"></table></div>
+    <div class="card"><button class="btn ghost" id="resetBtn">清除所有保留（展示前重置）</button></div>`;
+  $("#seatTable").onclick = async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    const id = b.dataset.id, act = b.dataset.act;
+    const path = `seats/${id}/device`;
+    if (act === "used") await update(ref(db, path), { occupied: true, away: false, updated: serverTimestamp() });
+    if (act === "away") await update(ref(db, path), { occupied: true, away: true, updated: serverTimestamp() });
+    if (act === "empty") await update(ref(db, path), { occupied: false, away: false, updated: serverTimestamp() });
+    if (act === "unhold") await remove(ref(db, `seats/${id}/hold`));
+  };
+  $("#repTable").onclick = async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    await update(ref(db, `repairs/${b.dataset.k}`), { done: true });
+  };
+  $("#resetBtn").onclick = async () => {
+    if (!confirm("確定清除所有保留？")) return;
+    for (const s of allSeats) await remove(ref(db, `seats/${s.id}/hold`));
+    await remove(ref(db, "holds"));
+  };
+}
+function renderAdmin() {
+  $("#seatTable").innerHTML = `<tr><th>座位</th><th>狀態</th><th></th></tr>` + allSeats.map(s => {
+    const { st, offline } = stateOf(s.id);
+    return `<tr><td>${s.id}${s.real ? "（實體）" : ""}</td><td>${LABEL[st]}${offline ? "・離線" : ""}</td><td>
+      <button class="btn ghost small" data-id="${s.id}" data-act="used">坐下</button>
+      <button class="btn ghost small" data-id="${s.id}" data-act="away">暫離</button>
+      <button class="btn ghost small" data-id="${s.id}" data-act="empty">離開</button>
+      <button class="btn ghost small" data-id="${s.id}" data-act="unhold">清保留</button></td></tr>`;
+  }).join("");
+  const list = Object.entries(repairs).filter(([, r]) => !r.done).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  $("#repTable").innerHTML = list.length ? list.map(([k, r]) => `<tr><td>${esc(r.seat)}</td><td>${esc(r.kind)} ${esc(r.note || "")}</td>
+    <td class="muted">${r.at ? new Date(r.at).toLocaleTimeString("zh-TW", {hour:"2-digit", minute:"2-digit"}) : ""}</td>
+    <td><button class="btn ghost small" data-k="${k}">已修好</button></td></tr>`).join("")
+    : `<tr><td class="muted">目前沒有報修</td></tr>`;
+}
+
+// ================= 畫面：列印 QR code（?qr） =================
+function qrView() {
+  $("#app").innerHTML = `<p class="noprint"><button class="btn small" onclick="print()">列印</button></p>
+    <div class="qrgrid">
+      <div class="qrcard"><img src="${qrImg(BASE_URL)}"><div class="big" style="font-size:18px">入口：查空位、保留</div></div>
+      <div class="qrcard"><img src="${qrImg(BASE_URL + "?board")}"><div class="big" style="font-size:18px">iPad 看板</div></div>
+      ${allSeats.map(s => `<div class="qrcard"><img src="${qrImg(BASE_URL + "?seat=" + s.id)}">
+        <div class="big">${s.id} 號位</div><div class="muted">報到・收集房間・報修</div></div>`).join("")}
+    </div>`;
+}
+
+// ================= 啟動 =================
+const RENDER = { map: renderMap, seat: renderSeat, board: renderBoard, admin: renderAdmin, qr: () => {} };
+const VIEW = { map: mapView, seat: seatView, board: boardView, admin: adminView, qr: qrView };
+let ready = false;
+function render() { if (ready) RENDER[MODE](); }
+
+onValue(ref(db, ".info/serverTimeOffset"), s => { offset = s.val() || 0; });
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  uid = user.uid;
+  VIEW[MODE]();
+  if (MODE === "qr") return;
+  onValue(ref(db, "seats"), s => { seats = s.val() || {}; ready = true; render(); });
+  onValue(ref(db, `holds/${uid}`), s => { myHold = s.val(); render(); });
+  onValue(ref(db, `collections/${uid}`), s => { myRooms = s.val() || {}; });
+  if (MODE === "admin") onValue(ref(db, "repairs"), s => { repairs = s.val() || {}; render(); });
+  setInterval(render, 1000);   // 倒數和過期判斷每秒更新
+});
+signInAnonymously(auth).catch(err => {
+  $("#app").innerHTML = `<p class="warn">連線失敗：${esc(err.code || err.message)}</p>
+    <p class="muted">請確認 Firebase 已啟用「匿名」登入（Authentication → 登入方式）。</p>`;
+});
+</script>
+</body>
+</html>
